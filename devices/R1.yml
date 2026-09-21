@@ -1,0 +1,21 @@
+name: R1
+platform: cisco-ios
+
+components:
+  - baseline
+  - management
+  - ospf
+
+hostname: R1
+domain_name: lab.local
+
+management:
+  username: admin
+
+loopback:
+  address: 10.255.1.1
+  mask: 255.255.255.255
+
+ospf:
+  process_id: 1
+  router_id: 10.255.1.1
