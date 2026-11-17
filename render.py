@@ -1,20 +1,33 @@
+
+import argparse
+from pathlib import Path
+
 import yaml
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
 
-DEVICE_FILE = "devices/R1.yml"
-TEMPLATE_DIR = "templates/cisco-ios"
-OUTPUT_FILE = "build/R1.cfg"
+def render_device(device_file):
+    device_path = Path(device_file)
 
-
-def main():
     # Read the device definition
-    with open(DEVICE_FILE, "r") as file:
+    with device_path.open("r") as file:
         device = yaml.safe_load(file)
 
-    # Configure Jinja2
+    # Validate required fields
+    required_fields = ["name", "platform", "components"]
+
+    for field in required_fields:
+        if field not in device:
+            raise ValueError(
+                f"Device definition '{device_file}' is missing "
+                f"required field: '{field}'"
+            )
+
+    # Select templates based on platform
+    template_dir = Path("templates") / device["platform"]
+
     environment = Environment(
-        loader=FileSystemLoader(TEMPLATE_DIR),
+        loader=FileSystemLoader(template_dir),
         trim_blocks=True,
         lstrip_blocks=True,
     )
@@ -23,22 +36,71 @@ def main():
 
     # Render each requested component
     for component in device["components"]:
-        template = environment.get_template(f"{component}.j2")
-        rendered = template.render(**device)
+        template_path = f"{component}/main.j2"
 
+        try:
+            template = environment.get_template(template_path)
+        except TemplateNotFound:
+            raise RuntimeError(
+                f"Component '{component}' does not exist "
+                f"for platform '{device['platform']}'"
+            )
+
+        rendered = template.render(**device)
         configuration.append(rendered)
 
-    # Assemble the final configuration
+    # Add final configuration command
     configuration.append("end")
 
+    # Assemble configuration
     final_configuration = "\n\n".join(configuration)
 
-    # Write the generated configuration
-    with open(OUTPUT_FILE, "w") as file:
+    # Determine output filename from device name
+    output_dir = Path("build")
+    output_dir.mkdir(exist_ok=True)
+
+    output_file = output_dir / f"{device['name']}.cfg"
+
+    # Write generated configuration
+    with output_file.open("w") as file:
         file.write(final_configuration)
 
-    print(f"Generated {OUTPUT_FILE}")
+    print(f"Generated {output_file}")
 
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate device configurations from YAML."
+    )
+
+    parser.add_argument(
+        "device",
+        nargs="?",
+        help="Path to the device YAML definition.",
+    )
+
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Generate configurations for all device definitions.",
+    )
+
+    args = parser.parse_args()
+
+    if args.all:
+        device_files = sorted(Path("devices").glob("*.yml"))
+
+        if not device_files:
+            raise RuntimeError("No device definitions found in devices/")
+
+        for device_file in device_files:
+            render_device(device_file)
+
+    elif args.device:
+        render_device(args.device)
+
+    else:
+        parser.error("provide a device file or use --all")
 
 if __name__ == "__main__":
     main()

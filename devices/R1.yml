@@ -4,7 +4,7 @@ platform: cisco-ios
 components:
   - baseline
   - management
-  - ospf
+  - routing/ospf
 
 hostname: R1
 domain_name: lab.local

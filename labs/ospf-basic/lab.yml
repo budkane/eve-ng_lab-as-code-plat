@@ -1,0 +1,23 @@
+name: ospf-basic
+
+nodes:
+  - name: R1
+    device: R1
+    image: cisco-iosv
+
+  - name: R2
+    device: R2
+    image: cisco-iosv
+
+  - name: R3
+    device: R3
+    image: cisco-iosv
+
+links:
+  - endpoints:
+      - R1:Gi0/0
+      - R2:Gi0/0
+
+  - endpoints:
+      - R2:Gi0/1
+      - R3:Gi0/0
